@@ -88,6 +88,7 @@ class ThemeManager:
     QMenuBar {
         background-color: #2b2b2b;
         color: #ffffff;
+        padding:3px;
     }
     QMenuBar::item {
         background-color: #2b2b2b;
@@ -110,6 +111,10 @@ class ThemeManager:
     }
     QSplitter::handle {
         background-color: #555555;
+    }
+    QMessageBox{
+    background-color:#3c3f41;
+    color:#fff;
     }
     """
 
@@ -159,6 +164,7 @@ class ThemeManager:
     QMenuBar {
         background-color: #f0f0f0;
         color: #000000;
+        padding:3px;
     }
     QMenuBar::item {
         background-color: #f0f0f0;
@@ -203,7 +209,6 @@ class ImageEditor(QMainWindow):
         # Setup UI components
         self.setup_ui()
         self.setup_menus()
-        self.setup_toolbars()
         self.setup_dock_widgets()
         self.setup_status_bar()
 
@@ -282,6 +287,7 @@ class ImageEditor(QMainWindow):
         # Create main central widget and layout
         central_widget = QWidget()
         main_layout = QHBoxLayout()
+        main_layout.setContentsMargins(0, 0, 10, 0)
 
         # Create splitter for flexible layout
         self.splitter = QSplitter(Qt.Horizontal)
@@ -311,22 +317,6 @@ class ImageEditor(QMainWindow):
         main_layout.addWidget(self.splitter)
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
-
-    def setup_toolbars(self):
-        toolbar = self.addToolBar("Image Tools")
-        tools = [
-            ("Open", self.open_image, "open_icon.png"),
-            ("Save", self.save_image, "save_icon.png"),
-            ("Undo", self.undo, "undo_icon.png"),
-            ("Redo", self.redo, "redo_icon.png"),
-        ]
-
-        for name, method, icon_path in tools:
-            action = QAction(
-                QIcon(icon_path) if os.path.exists(icon_path) else QIcon(), name, self
-            )
-            action.triggered.connect(method)
-            toolbar.addAction(action)
 
     def adjust_dock_height(self, dock_widget, height):
         """Adjust the height of the specified QDockWidget."""
