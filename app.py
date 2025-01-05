@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QAction, QDockWidget, QScrollArea, QGridLayout, QMessageBox, 
     QTreeWidget, QTreeWidgetItem, QSplitter
 )
-from PyQt5.QtGui import QPixmap, QImage, QIcon, QColor
+from PyQt5.QtGui import QPixmap, QImage, QIcon, QColor, QPalette
 from PyQt5.QtCore import Qt, QSize
 
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
@@ -21,11 +21,159 @@ logging.basicConfig(
     filename='image_editor.log'
 )
 
+class ThemeManager:
+    DARK_STYLESHEET = """
+    QMainWindow {
+        background-color: #3c3f41;
+        color: #ffffff;
+    }
+    QLabel {
+        color: #ffffff;
+        background-color: #2b2b2b;
+    }
+    QTreeWidget {
+        background-color: #3c3f41;
+        color: #ffffff;
+        border: 1px solid #555;
+    }
+    QTreeWidget::item {
+        background-color: #3c3f41;
+        color: #ffffff;
+    }
+    QTreeWidget::item:selected {
+        background-color: #4c5052;
+    }
+    QDockWidget {
+        background-color: #3c3f41;
+        color: #ffffff;
+    }
+    QPushButton {
+        background-color: #3c3f41;
+        color: #ffffff;
+        border: 1px solid #555;
+        padding: 5px;
+    }
+    QPushButton:hover {
+        background-color: #4c5052;
+    }
+    QSlider::groove:horizontal {
+        background-color: ##FF5733;
+        height: 8px;
+    }
+    QSlider::handle:horizontal {
+        background-color: #fff;
+        width: 18px;
+        margin: -5px 0;
+        border-radius: 9px;
+    }
+    QMenuBar {
+        background-color: #2b2b2b;
+        color: #ffffff;
+    }
+    QMenuBar::item {
+        background-color: #2b2b2b;
+        color: #ffffff;
+    }
+    QMenuBar::item:selected {
+        background-color: #4c5052;
+    }
+    QMenu {
+        background-color: #2b2b2b;
+        color: #ffffff;
+        border: 1px solid #555;
+    }
+    QMenu::item:selected {
+        background-color: #4c5052;
+    }
+    QScrollArea {
+        background-color: #1e1e1e;  # Slightly different from dock background
+        border: none;
+    }
+    QSplitter::handle {
+        background-color: #555555;  # Distinct splitter color
+    }
+    """
+
+    LIGHT_STYLESHEET = """
+    QMainWindow {
+        background-color: #ffffff;
+        color: #000000;
+    }
+    QLabel {
+        color: #000000;
+    }
+    QTreeWidget {
+        background-color: #ffffff;
+        color: #000000;
+        border: 1px solid #cccccc;
+    }
+    QTreeWidget::item {
+        background-color: #ffffff;
+        color: #000000;
+    }
+    QTreeWidget::item:selected {
+        background-color: #e0e0e0;
+    }
+    QDockWidget {
+        background-color: #f0f0f0;
+        color: #000000;
+    }
+    QPushButton {
+        background-color: #e0e0e0;
+        color: #000000;
+        border: 1px solid #cccccc;
+        padding: 5px;
+    }
+    QPushButton:hover {
+        background-color: #d0d0d0;
+    }
+    QSlider::groove:horizontal {
+        background-color: #5D3FD3;
+        height: 8px;
+    }
+    QSlider::handle:horizontal {
+        background-color: #6F8FAF;
+        width: 18px;
+        margin: -5px 0;
+        border-radius: 9px;
+    }
+    QMenuBar {
+        background-color: #f0f0f0;
+        color: #000000;
+    }
+    QMenuBar::item {
+        background-color: #f0f0f0;
+        color: #000000;
+    }
+    QMenuBar::item:selected {
+        background-color: #e0e0e0;
+    }
+    QMenu {
+        background-color: #f0f0f0;
+        color: #000000;
+        border: 1px solid #cccccc;
+    }
+    QMenu::item:selected {
+        background-color: #e0e0e0;
+    }
+    QScrollArea {
+        background-color: #ffffff;
+        border: black;
+    }
+    QSplitter::handle {
+        background-color: #cccccc;
+    }
+    """
+
+
 class ImageEditor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Advanced Image Editor")
         self.resize(1600, 900)
+        
+        # Theme management
+        self.current_theme = 'light'
         
         # Image management
         self.original_image = None
@@ -39,7 +187,81 @@ class ImageEditor(QMainWindow):
         self.setup_toolbars()
         self.setup_dock_widgets()
         self.setup_status_bar()
+        
+        # Apply default theme
+        self.apply_theme(self.current_theme)
     
+    def setup_menus(self):
+        menubar = self.menuBar()
+        
+        # File Menu
+        file_menu = menubar.addMenu("&File")
+        file_actions = [
+            ("&Open", self.open_image, "Ctrl+O"),
+            ("&Save", self.save_image, "Ctrl+S"),
+            ("Save &As", self.save_image_as, "Ctrl+Shift+S"),
+            ("&Exit", self.close, "Ctrl+Q")
+        ]
+        
+        for text, method, shortcut in file_actions:
+            action = QAction(text, self)
+            action.setShortcut(shortcut)
+            action.triggered.connect(method)
+            file_menu.addAction(action)
+        
+        # Preferences Menu
+        pref_menu = menubar.addMenu("&Preferences")
+        
+        # Theme Submenu
+        theme_menu = pref_menu.addMenu("Theme")
+        
+        # Create theme actions dynamically
+        self.theme_actions = {}
+        themes = {
+            'light': "Switch to Light Theme",
+            'dark': "Switch to Dark Theme"
+        }
+        
+        for theme, text in themes.items():
+            # Only show the opposite of current theme
+            action = QAction(text, self)
+            action.triggered.connect(lambda checked, t=theme: self.apply_theme(t))
+            self.theme_actions[theme] = action
+            theme_menu.addAction(action)
+        
+        # Edit Menu
+        edit_menu = menubar.addMenu("&Edit")
+        edit_actions = [
+            ("Undo", self.undo, "Ctrl+Z"),
+            ("Redo", self.redo, "Ctrl+Y"),
+            ("Cut", None, "Ctrl+X"),
+            ("Copy", None, "Ctrl+C"),
+            ("Paste", None, "Ctrl+V")
+        ]
+        
+        for text, method, shortcut in edit_actions:
+            action = QAction(text, self)
+            action.setShortcut(shortcut)
+            if method:
+                action.triggered.connect(method)
+            else:
+                action.setEnabled(False)
+            edit_menu.addAction(action)
+
+    def apply_theme(self, theme):
+        """Apply the selected theme to the application."""
+        self.current_theme = theme
+        if theme == 'dark':
+            self.setStyleSheet(ThemeManager.DARK_STYLESHEET)
+        else:
+            self.setStyleSheet(ThemeManager.LIGHT_STYLESHEET)
+        
+        # Update the preferences menu to show the correct theme option
+        for t, action in self.theme_actions.items():
+            action.setVisible(t != theme)
+        
+        logging.info(f"Theme changed to: {theme}")
+
     def setup_ui(self):
         # Create main central widget and layout
         central_widget = QWidget()
@@ -72,44 +294,7 @@ class ImageEditor(QMainWindow):
         main_layout.addWidget(self.splitter)
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
-    
-    def setup_menus(self):
-        menubar = self.menuBar()
-        
-        # File Menu
-        file_menu = menubar.addMenu("&File")
-        file_actions = [
-            ("&Open", self.open_image, "Ctrl+O"),
-            ("&Save", self.save_image, "Ctrl+S"),
-            ("Save &As", self.save_image_as, "Ctrl+Shift+S"),
-            ("&Exit", self.close, "Ctrl+Q")
-        ]
-        
-        for text, method, shortcut in file_actions:
-            action = QAction(text, self)
-            action.setShortcut(shortcut)
-            action.triggered.connect(method)
-            file_menu.addAction(action)
-        
-        # Edit Menu
-        edit_menu = menubar.addMenu("&Edit")
-        edit_actions = [
-            ("Undo", self.undo, "Ctrl+Z"),
-            ("Redo", self.redo, "Ctrl+Y"),
-            ("Cut", None, "Ctrl+X"),
-            ("Copy", None, "Ctrl+C"),
-            ("Paste", None, "Ctrl+V")
-        ]
-        
-        for text, method, shortcut in edit_actions:
-            action = QAction(text, self)
-            action.setShortcut(shortcut)
-            if method:
-                action.triggered.connect(method)
-            else:
-                action.setEnabled(False)
-            edit_menu.addAction(action)
-    
+
     def setup_toolbars(self):
         toolbar = self.addToolBar("Image Tools")
         tools = [
@@ -123,12 +308,23 @@ class ImageEditor(QMainWindow):
             action = QAction(QIcon(icon_path) if os.path.exists(icon_path) else QIcon(), name, self)
             action.triggered.connect(method)
             toolbar.addAction(action)
-    
+
+    def adjust_dock_height(self, dock_widget, height):
+        """Adjust the height of the specified QDockWidget."""
+        # Set minimum and maximum height
+        dock_widget.setMinimumHeight(height)
+        dock_widget.setMaximumHeight(height)
+        
+        # Resize the dock widget
+        dock_widget.resize(dock_widget.width(), height)
+
+
     def setup_dock_widgets(self):
         # Adjustments Dock (Right Side)
         adjustments_dock = QDockWidget("Adjustments", self)
         adjustments_widget = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(15)
         
         # Sliders for image adjustments
         adjustment_types = [
@@ -141,14 +337,17 @@ class ImageEditor(QMainWindow):
             slider = QSlider(Qt.Horizontal)
             slider.setRange(min_val, max_val)
             slider.setValue(default)
+            slider.setFixedHeight(18)
             slider.valueChanged.connect(lambda value, n=name: self.adjust_image(n, value))
-            
-            layout.addWidget(QLabel(name))
+            label = QLabel(name)
+            label.setFixedHeight(20)
+            layout.addWidget(label)
             layout.addWidget(slider)
         
         adjustments_widget.setLayout(layout)
         adjustments_dock.setWidget(adjustments_widget)
         self.addDockWidget(Qt.RightDockWidgetArea, adjustments_dock)
+        self.adjust_dock_height(adjustments_dock, 300)
         
         # Filters Dock (Right Side)
         filters_dock = QDockWidget("Filters", self)
@@ -170,11 +369,11 @@ class ImageEditor(QMainWindow):
         filters_widget.setLayout(filters_layout)
         filters_dock.setWidget(filters_widget)
         self.addDockWidget(Qt.RightDockWidgetArea, filters_dock)
-    
+
     def setup_status_bar(self):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-    
+
     def log_activity(self, action_name):
         """Log an activity to the history tree widget"""
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -185,7 +384,7 @@ class ImageEditor(QMainWindow):
         # Keep only last 20 history entries
         if self.history_tree.topLevelItemCount() > 20:
             self.history_tree.takeTopLevelItem(0)
-    
+
     def open_image(self):
         try:
             file_path, _ = QFileDialog.getOpenFileName(
@@ -205,7 +404,7 @@ class ImageEditor(QMainWindow):
         except Exception as e:
             logging.error(f"Error opening image: {str(e)}")
             self.show_error(f"Error opening image: {str(e)}")
-    
+
     def display_image(self, image):
         try:
             buffer = io.BytesIO()
@@ -307,7 +506,7 @@ class ImageEditor(QMainWindow):
                 self.log_activity(f"{adjustment_type} Adjustment")
             except Exception as e:
                 self.show_error(f"Error adjusting image: {str(e)}")
-    
+
     def apply_grayscale(self):
         if self.current_image:
             try:
@@ -319,7 +518,7 @@ class ImageEditor(QMainWindow):
                 self.log_activity("Grayscale Filter")
             except Exception as e:
                 self.show_error(f"Error applying grayscale: {str(e)}")
-    
+
     def apply_blur(self):
         if self.current_image:
             try:
