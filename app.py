@@ -22,6 +22,7 @@ from PyQt5.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QSplitter,
+    QComboBox
 )
 from PyQt5.QtGui import QPixmap, QImage, QIcon, QColor, QPalette
 from PyQt5.QtCore import Qt, QSize
@@ -198,7 +199,7 @@ class ImageEditor(QMainWindow):
         self.resize(1600, 900)
 
         # Theme management
-        self.current_theme = "light"
+        self.current_theme = "dark"
 
         # Image management
         self.original_image = None
@@ -318,11 +319,12 @@ class ImageEditor(QMainWindow):
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
-    def adjust_dock_height(self, dock_widget, height):
+    def adjust_dock_height(self, dock_widget,width, height):
         """Adjust the height of the specified QDockWidget."""
         # Set minimum and maximum height
         dock_widget.setMinimumHeight(height)
         dock_widget.setMaximumHeight(height)
+        dock_widget.setMinimumWidth(width)
 
         # Resize the dock widget
         dock_widget.resize(dock_widget.width(), height)
@@ -330,9 +332,9 @@ class ImageEditor(QMainWindow):
     def setup_dock_widgets(self):
         # Adjustments Dock (Right Side)
         adjustments_dock = QDockWidget("Adjustments", self)
+        adjustments_dock.setMaximumWidth(300)
         adjustments_widget = QWidget()
         layout = QVBoxLayout()
-        layout.setSpacing(15)
 
         # Sliders for image adjustments
         adjustment_types = [
@@ -357,28 +359,31 @@ class ImageEditor(QMainWindow):
         adjustments_widget.setLayout(layout)
         adjustments_dock.setWidget(adjustments_widget)
         self.addDockWidget(Qt.RightDockWidgetArea, adjustments_dock)
-        self.adjust_dock_height(adjustments_dock, 300)
+        self.adjust_dock_height(adjustments_dock, 250, 300)
 
-        # Filters Dock (Right Side)
         filters_dock = QDockWidget("Filters", self)
         filters_widget = QWidget()
-        filters_layout = QGridLayout()
+        filters_layout = QVBoxLayout()
 
-        filters = [
-            ("Grayscale", self.apply_grayscale),
-            ("Blur", self.apply_blur),
-            ("Sharpen", self.apply_sharpen),
-            ("Negative", self.apply_negative),
-        ]
-
-        for i, (filter_name, method) in enumerate(filters):
-            btn = QPushButton(filter_name)
-            btn.clicked.connect(method)
-            filters_layout.addWidget(btn, i // 4, i % 4)
+        self.filter_dropdown = QComboBox()
+        self.filter_dropdown.addItems(["Grayscale", "Blur", "Sharpen", "Negative"])
+        self.filter_dropdown.currentIndexChanged.connect(self.apply_filter_from_dropdown)
+        filters_layout.addWidget(self.filter_dropdown)
 
         filters_widget.setLayout(filters_layout)
         filters_dock.setWidget(filters_widget)
+        self.adjust_dock_height(filters_dock, 250, 200)
         self.addDockWidget(Qt.RightDockWidgetArea, filters_dock)
+
+    def apply_filter_from_dropdown(self, index):
+        """Apply a filter based on the selected dropdown option."""
+        filter_methods = {
+            0: self.apply_grayscale,
+            1: self.apply_blur,
+            2: self.apply_sharpen,
+            3: self.apply_negative,
+        }
+        filter_methods.get(index)()
 
     def setup_status_bar(self):
         self.status_bar = QStatusBar()
