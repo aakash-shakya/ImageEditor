@@ -319,7 +319,7 @@ class ImageEditor(QMainWindow):
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
-    def adjust_dock_height(self, dock_widget,width, height):
+   def adjust_dock_height(self, dock_widget,width, height):
         """Adjust the height of the specified QDockWidget."""
         # Set minimum and maximum height
         dock_widget.setMinimumHeight(height)
