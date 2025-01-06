@@ -298,8 +298,15 @@ class ImageEditor(QMainWindow):
         # History Tree Widget (Left Side)
         self.history_tree = QTreeWidget()
         self.history_tree.setHeaderLabels(["Action", "Timestamp"])
+        self.history_tree.setIndentation(15)
+        self.history_tree.setItemsExpandable(True)  
+        self.history_tree.setExpandsOnDoubleClick(True) 
         self.history_tree.setMaximumWidth(250)
         self.history_tree.itemClicked.connect(self.set_selected_parent)
+        self.history_tree_scrollable_area = QScrollArea()
+        self.history_tree_scrollable_area.setWidget(self.history_tree)
+        self.history_tree_scrollable_area.setWidgetResizable(True)
+        
 
         # Scroll Area for Image (Center)
         self.scroll_area = QScrollArea()
@@ -398,19 +405,20 @@ class ImageEditor(QMainWindow):
     def log_activity(self, action_name):
         """Log an activity to the history tree widget"""
         timestamp = datetime.now().strftime("%H:%M:%S")
-        item = QTreeWidgetItem(self.history_tree)
-        item.setText(0, action_name)
-        item.setText(1, timestamp)
+        child_item = QTreeWidgetItem([action_name, timestamp])
 
         if self.selected_parent:
-            self.selected_parent.addChild(item)
+            self.selected_parent.addChild(child_item)
+            self.selected_parent.setExpanded(True)
+            self.selected_parent = None
         else:
-            self.history_tree.addTopLevelItem(item) 
+            self.history_tree.addTopLevelItem(child_item) 
 
-        item.setExpanded(True)
-        # Keep only last 20 history entries
+        # keep only 50 action logs
         if self.history_tree.topLevelItemCount() > 50:
             self.history_tree.takeTopLevelItem(0)
+
+        self.history_tree.clearSelection()
 
     def open_image(self):
         try:
