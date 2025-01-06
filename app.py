@@ -206,6 +206,7 @@ class ImageEditor(QMainWindow):
         self.current_image = None
         self.image_history = []
         self.history_index = -1
+        self.selected_parent = None
 
         # Setup UI components
         self.setup_ui()
@@ -298,6 +299,7 @@ class ImageEditor(QMainWindow):
         self.history_tree = QTreeWidget()
         self.history_tree.setHeaderLabels(["Action", "Timestamp"])
         self.history_tree.setMaximumWidth(250)
+        self.history_tree.itemClicked.connect(self.set_selected_parent)
 
         # Scroll Area for Image (Center)
         self.scroll_area = QScrollArea()
@@ -318,6 +320,10 @@ class ImageEditor(QMainWindow):
         main_layout.addWidget(self.splitter)
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
+
+    def set_selected_parent(self, item):
+        """Set the clicked item as the selected parent."""
+        self.selected_parent = item
 
     def adjust_dock_height(self, dock_widget,width, height):
         """Adjust the height of the specified QDockWidget."""
@@ -396,8 +402,14 @@ class ImageEditor(QMainWindow):
         item.setText(0, action_name)
         item.setText(1, timestamp)
 
+        if self.selected_parent:
+            self.selected_parent.addChild(item)
+        else:
+            self.history_tree.addTopLevelItem(item) 
+
+        item.setExpanded(True)
         # Keep only last 20 history entries
-        if self.history_tree.topLevelItemCount() > 20:
+        if self.history_tree.topLevelItemCount() > 50:
             self.history_tree.takeTopLevelItem(0)
 
     def open_image(self):
