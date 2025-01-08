@@ -415,9 +415,8 @@ class ImageEditor(QMainWindow):
             slider.setRange(min_val, max_val)
             slider.setValue(default)
             slider.setFixedHeight(18)
-            slider.valueChanged.connect(
-                lambda value, n=name: self.adjust_image(n, value)
-            )
+            slider.valueChanged.connect(lambda value, n=name: setattr(self, f"{n.lower()}_value", value))
+            slider.sliderReleased.connect(lambda n=name: self.adjust_image(n, getattr(self, f"{n.lower()}_value")))
             label = QLabel(name)
             label.setFixedHeight(20)
             layout.addWidget(label)
@@ -579,18 +578,18 @@ class ImageEditor(QMainWindow):
             try:
                 if adjustment_type == "Brightness":
                     enhancer = ImageEnhance.Brightness(self.current_image)
-                    enhanced_image = enhancer.enhance(value / 100)
+                    self.current_image = enhancer.enhance(value / 100)
                 elif adjustment_type == "Contrast":
                     enhancer = ImageEnhance.Contrast(self.current_image)
-                    enhanced_image = enhancer.enhance(value / 100)
+                    self.current_image = enhancer.enhance(value / 100)
                 elif adjustment_type == "Saturation":
                     enhancer = ImageEnhance.Color(self.current_image)
-                    enhanced_image = enhancer.enhance(value / 100)
+                    self.current_image = enhancer.enhance(value / 100)
                 else:
                     return
 
-                self.add_to_history(enhanced_image)
-                self.display_image(enhanced_image)
+                self.add_to_history(self.current_image)
+                self.display_image(self.current_image)
 
                 # Log activity
                 self.log_activity(f"{adjustment_type}")
