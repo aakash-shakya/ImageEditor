@@ -22,10 +22,12 @@ from PyQt5.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QSplitter,
-    QComboBox
+    QComboBox,
+    QStyledItemDelegate,
+    QStyle
 )
 from PyQt5.QtGui import QPixmap, QImage, QIcon, QColor, QPalette
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QRect, QEvent
 
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import io
@@ -137,7 +139,7 @@ class ThemeManager:
         color: #000000;
     }
     QTreeWidget::item:selected {
-        background-color: #e0e0e0;
+        background-color: #E2DFD2;
     }
     QDockWidget {
         background-color: #f0f0f0;
@@ -163,12 +165,12 @@ class ThemeManager:
         border-radius: 9px;
     }
     QMenuBar {
-        background-color: #f0f0f0;
+        background-color: #E2DFD2;
         color: #000000;
         padding:3px;
     }
     QMenuBar::item {
-        background-color: #f0f0f0;
+        background-color: #E2DFD2;
         color: #000000;
     }
     QMenuBar::item:selected {
@@ -191,6 +193,28 @@ class ThemeManager:
     }
     """
 
+class DeleteIconDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None, image_editor=None):
+        super().__init__(parent)
+        self.image_editor = image_editor
+        self.delete_icon = QIcon("/delete_icon.png")  # Path to your delete icon
+
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+        if option.state & QStyle.StateFlag.State_MouseOver:
+            # Draw the delete icon on hover
+            icon_rect = QRect(option.rect.right() - 20, option.rect.top(), 16, 16)
+            self.delete_icon.paint(painter, icon_rect)
+
+    def editorEvent(self, event, model, option, index):
+        if event.type() == QEvent.MouseButtonPress:
+            # Check if the delete icon was clicked
+            icon_rect = QRect(option.rect.right() - 20, option.rect.top(), 16, 16)
+            if icon_rect.contains(event.pos()):
+                # Emit a signal or call a method to delete the item
+                self.image_editor.delete_item(index)
+                return True
+        return super().editorEvent(event, model, option, index)
 
 class ImageEditor(QMainWindow):
     def __init__(self):
@@ -199,7 +223,7 @@ class ImageEditor(QMainWindow):
         self.resize(1600, 900)
 
         # Theme management
-        self.current_theme = "dark"
+        self.current_theme = "light"
 
         # Image management
         self.original_image = None
@@ -285,6 +309,33 @@ class ImageEditor(QMainWindow):
 
         logging.info(f"Theme changed to: {theme}")
 
+    def delete_item(self, index):
+        """Delete the selected item from the history tree and update the image history."""
+        item = self.history_tree.itemFromIndex(index)
+        if item:
+            parent = item.parent()
+            if parent:
+                parent.removeChild(item)
+            else:
+                self.history_tree.takeTopLevelItem(self.history_tree.indexOfTopLevelItem(item))
+
+
+            # Remove the corresponding image from the image history
+            if 0 <= index.row() < len(self.image_history):
+                self.image_history.pop(index.row())
+                self.history_index = index.row()-1
+
+            # Update the displayed image
+            if self.image_history:
+                self.current_image = self.image_history[self.history_index]
+                self.display_image(self.current_image)
+            else:
+                self.current_image = None
+                self.image_label.clear()
+                self.image_label.setText("No image loaded")
+
+            logging.info(f"Deleted action: {item.text(0)}")
+
     def setup_ui(self):
         # Create main central widget and layout
         central_widget = QWidget()
@@ -306,6 +357,9 @@ class ImageEditor(QMainWindow):
         self.history_tree_scrollable_area = QScrollArea()
         self.history_tree_scrollable_area.setWidget(self.history_tree)
         self.history_tree_scrollable_area.setWidgetResizable(True)
+
+        self.history_tree.setItemDelegate(DeleteIconDelegate(self.history_tree, self))
+
         
 
         # Scroll Area for Image (Center)
@@ -374,16 +428,19 @@ class ImageEditor(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, adjustments_dock)
         self.adjust_dock_height(adjustments_dock, 250, 300)
 
-        filters_dock = QDockWidget("Filters", self)
         filters_widget = QWidget()
         filters_layout = QVBoxLayout()
+        filters_layout.setSpacing(0) 
+        filters_layout.setContentsMargins(0, 0, 0, 0) 
 
         self.filter_dropdown = QComboBox()
+        self.filter_dropdown.setFixedHeight(30)
         self.filter_dropdown.addItems(["Grayscale", "Blur", "Sharpen", "Negative"])
         self.filter_dropdown.currentIndexChanged.connect(self.apply_filter_from_dropdown)
         filters_layout.addWidget(self.filter_dropdown)
-
         filters_widget.setLayout(filters_layout)
+
+        filters_dock = QDockWidget("Filters", self)
         filters_dock.setWidget(filters_widget)
         self.adjust_dock_height(filters_dock, 250, 200)
         self.addDockWidget(Qt.RightDockWidgetArea, filters_dock)
@@ -509,8 +566,6 @@ class ImageEditor(QMainWindow):
             self.current_image = self.image_history[self.history_index]
             self.display_image(self.current_image)
 
-            # Log activity
-            self.log_activity("Undo Action")
 
     def redo(self):
         if self.history_index < len(self.image_history) - 1:
@@ -518,8 +573,6 @@ class ImageEditor(QMainWindow):
             self.current_image = self.image_history[self.history_index]
             self.display_image(self.current_image)
 
-            # Log activity
-            self.log_activity("Redo Action")
 
     def adjust_image(self, adjustment_type, value):
         if self.current_image:
@@ -540,7 +593,7 @@ class ImageEditor(QMainWindow):
                 self.display_image(enhanced_image)
 
                 # Log activity
-                self.log_activity(f"{adjustment_type} Adjustment")
+                self.log_activity(f"{adjustment_type}")
             except Exception as e:
                 self.show_error(f"Error adjusting image: {str(e)}")
 
@@ -552,7 +605,7 @@ class ImageEditor(QMainWindow):
                 self.display_image(self.current_image)
 
                 # Log activity
-                self.log_activity("Grayscale Filter")
+                self.log_activity("Grayscale")
             except Exception as e:
                 self.show_error(f"Error applying grayscale: {str(e)}")
 
@@ -564,7 +617,7 @@ class ImageEditor(QMainWindow):
                 self.display_image(self.current_image)
 
                 # Log activity
-                self.log_activity("Blur Filter")
+                self.log_activity("Blur")
             except Exception as e:
                 self.show_error(f"Error applying blur: {str(e)}")
 
@@ -576,7 +629,7 @@ class ImageEditor(QMainWindow):
                 self.display_image(self.current_image)
 
                 # Log activity
-                self.log_activity("Sharpen Filter")
+                self.log_activity("Sharpen")
             except Exception as e:
                 self.show_error(f"Error applying sharpen: {str(e)}")
 
@@ -588,7 +641,7 @@ class ImageEditor(QMainWindow):
                 self.display_image(self.current_image)
 
                 # Log activity
-                self.log_activity("Negative Filter")
+                self.log_activity("Negative")
             except Exception as e:
                 self.show_error(f"Error applying negative: {str(e)}")
 
