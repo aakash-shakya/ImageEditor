@@ -50,19 +50,19 @@ The **Advanced Image Editor** is a Python-based application built using the PyQt
 
 1\. Clone the repository:
 
-   $ git clone https://github.com/aakash-shakya/ImageEditor.git
+   ```git clone https://github.com/aakash-shakya/ImageEditor.git```
 
-   $ cd ImageEditor
+   ```cd ImageEditor```
 
 
 2\. Install the required dependencies:
 
-   $ pip install PyQt5 pillow
+   ```pip install PyQt5 pillow```
 
 
 3\. Run the application:
 
-   $ python app.py
+   ```python app.py```
 
 ## Usage
 
