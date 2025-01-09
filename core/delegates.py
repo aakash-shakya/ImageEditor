@@ -6,7 +6,7 @@ class DeleteIconDelegate(QStyledItemDelegate):
     def __init__(self, parent=None, image_editor=None):
         super().__init__(parent)
         self.image_editor = image_editor
-        self.delete_icon = QIcon("delete_icon.png")  # Path to your delete icon
+        self.delete_icon = QIcon("../delete_icon.png")  # Path to your delete icon
 
     def paint(self, painter, option, index):
         super().paint(painter, option, index)
