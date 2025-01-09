@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import (
     QTreeWidgetItem,
     QSplitter,
     QComboBox,
+    QLineEdit,
 )
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
@@ -152,8 +153,10 @@ class ImageEditor(QMainWindow):
         self.history_tree_scrollable_area = QScrollArea()
         self.history_tree_scrollable_area.setWidget(self.history_tree)
         self.history_tree_scrollable_area.setWidgetResizable(True)
+        self.history_tree.itemDoubleClicked.connect(self.rename_history_layer)
 
-        self.history_tree.setItemDelegate(DeleteIconDelegate(self.history_tree, self))
+
+        self.history_tree.setItemDelegateForColumn(1, DeleteIconDelegate(self.history_tree, self))
 
         
 
@@ -389,4 +392,21 @@ class ImageEditor(QMainWindow):
                 self.log_activity(f"{adjustment_type}")
             except Exception as e:
                 self.show_error(f"Error adjusting image: {str(e)}")
+
+    def rename_history_layer(self, item):
+        self.rename_text_box = QLineEdit(item.text(0))
+        self.rename_text_box.setText(item.text(0))
+        self.rename_text_box.selectAll()
+        self.rename_text_box.show()
+        self.rename_text_box.setFocus()
+        self.rename_text_box.returnPressed.connect(lambda: self.rename_history_layer_finish(item))
+        self.history_tree.setItemWidget(item, 0, self.rename_text_box)
+
+    def rename_history_layer_finish(self, item):
+        new_name = self.rename_text_box.text()
+        if new_name:
+            item.setText(0, new_name)
+        self.history_tree.setItemWidget(item, 0, None)
+        self.rename_text_box.deleteLater()
+        self.history_tree.clearSelection()
 
